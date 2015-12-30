@@ -4,22 +4,27 @@ extern crate rustc;
 extern crate rustc_driver;
 extern crate rustc_plugin;
 
-use rustc::session::config;
+use rustc::middle::cstore::DummyCrateStore;
+use rustc::session::{self,config};
 use rustc::session::config::Input;
 use rustc_driver::driver;
 
+use std::rc::Rc;
+use syntax::ast;
+use syntax::ast::Name;
+
 fn main() {
-    println!("Hello, world!");
+    println!("About to parse");
+    let krate = parse_code("fn main() { println!(\"Hello, world!\"); }");
+    println!("Resulting crate: {:?}", krate);
 }
 
-fn parse_code(code: &str) {
-    let config = panic!("Kaboom");
-    let sopts = config::basic_options();
-    let registry = rustc_plugin::registry::Registry::new(rustc::DIAGNOSTICS);
-
-    let sess = build_session(sopts, Some("input.rs"), registry);
-    let cfg = build_configuration(&sess);
-    let input = Input::Str("fn main() { println!(\"Hello, world!\"); }".to_string());
-    let krate = driver::phase_1_parse_input(&sess, cfg, &input);
+fn parse_code(code: &str) -> ast::Crate {
+    let options = config::basic_options();
+    let session = session::build_session(options, None,
+                                         syntax::diagnostics::registry::Registry::new(&[]),
+                                         Rc::new(DummyCrateStore));
+    let cfg: ast::CrateConfig = vec![];
+    let input = Input::Str(code.to_string());
+    driver::phase_1_parse_input(&session, cfg, &input)
 }
-
