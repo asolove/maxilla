@@ -10,13 +10,22 @@ use rustc::session::config::Input;
 use rustc_driver::driver;
 
 use std::rc::Rc;
-use syntax::ast;
-use syntax::ast::Name;
+use syntax::ast::{self, Item_, Stmt_};
+
 
 fn main() {
-    println!("About to parse");
-    let krate = parse_code("fn main() { println!(\"Hello, world!\"); }");
-    println!("Resulting crate: {:?}", krate);
+    let code = "fn main() { let a : &'static str = \"Hello\" + \", world!\"; println!(a); }";
+    println!("Parsing code: {}", code);
+    let krate = parse_code(code);
+
+    match krate.module.items[0].node {
+        Item_::ItemFn(ref _decl, _, _, _, ref _generics, ref block) =>
+            match block.stmts[0].node {
+                Stmt_::StmtDecl(ref decl, _id) => println!("Parsed let statement: {:?}", decl.node),
+                _ => unreachable!()
+            },
+        _ => unreachable!()
+    }
 }
 
 fn parse_code(code: &str) -> ast::Crate {
