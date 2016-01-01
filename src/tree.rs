@@ -1,19 +1,21 @@
 extern crate syntax;
 
-use syntax::codemap::{Pos, Span, Spanned};
+use std::iter;
+use syntax::codemap::{Pos, Spanned};
 
 pub struct ParseNode<T> {
   pub children: Vec<Spanned<ParseNode<T>>>,
   pub value: T
 }
 
-pub fn annotate(spanned_node: Spanned<ParseNode<String>>, code: &str, indent: u8) -> String {
+pub fn annotate(spanned_node: Spanned<ParseNode<String>>, code: &str, indent: usize) -> String {
   let node = spanned_node.node;
   let span = spanned_node.span;
-  format!("{}{}\n{}{} containing {}",
-    indent,
+  let indentation = iter::repeat(" ").take(indent*4).collect::<String>() + "  ";
+  format!("{}{}\n{}{} containing:\n\n{}",
+    indentation,
     string_byte_range(code, span.lo.to_usize(), span.hi.to_usize()),
-    indent,
+    indentation,
     node.value,
     node.children.into_iter().map(|node| annotate(node, code, indent+1)).collect::<Vec<String>>().join("\n")
   )
