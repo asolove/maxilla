@@ -11,6 +11,10 @@ use rustc_driver::driver;
 
 use std::rc::Rc;
 use syntax::ast::{self, Item_, Stmt_, Decl_, Pat_, Ty_, Expr_};
+use syntax::codemap::{Span, Spanned};
+
+mod tree;
+use tree::ParseNode;
 
 
 fn main() {
@@ -20,7 +24,7 @@ fn main() {
 
     match krate.module.items[0].node {
         Item_::ItemFn(ref _decl, _, _, _, ref _generics, ref block) =>
-            println!("{}", block.stmts[0].node.explain()),
+            println!("{}", tree::annotate(Spanned{ node: block.stmts[0].node.explain(), span: block.stmts[0].span }, code, 0)),
         _ => unreachable!()
     }
 }
@@ -36,32 +40,35 @@ fn parse_code(code: &str) -> ast::Crate {
 }
 
 trait ExplainParse {
-    fn explain(&self) -> String;
+    fn _explain(&self) -> String;
+    fn explain(&self) -> ParseNode<String> {
+        ParseNode { value: self._explain(), children: vec!() }
+    }
 }
 
 impl ExplainParse for Stmt_ {
-    fn explain(&self) -> String {
+    fn _explain(&self) -> String {
         match *self {
-            Stmt_::StmtDecl(ref decl, _id) => format!("A declaration of {}", decl.node.explain()),
+            Stmt_::StmtDecl(ref decl, _id) => format!("A declaration of {}", decl.node._explain()),
             _ => "some other statement".to_string()
         }
     }
 }
 
 impl ExplainParse for Decl_ {
-    fn explain(&self) -> String {
+    fn _explain(&self) -> String {
         match *self {
             Decl_::DeclLocal(ref local) => format!("a local assigning {} of type {:?} to {:?}",
-                                                local.pat.node.explain(),
-                                                local.ty.as_ref().map_or_else(|| "undeclared".to_string(), |ty| ty.node.explain()),
-                                                local.init.as_ref().map_or_else(|| "uninitialized".to_string(), |init| init.node.explain())),
+                                                local.pat.node._explain(),
+                                                local.ty.as_ref().map_or_else(|| "undeclared".to_string(), |ty| ty.node._explain()),
+                                                local.init.as_ref().map_or_else(|| "uninitialized".to_string(), |init| init.node._explain())),
             Decl_::DeclItem(ref _item) => "item declaration?".to_string()
         }
     }
 }
 
 impl ExplainParse for Pat_ {
-    fn explain(&self) -> String {
+    fn _explain(&self) -> String {
         match *self {
             Pat_::PatIdent(_, ref ident, _) => format!("the symbol {}", ident.node.name.as_str()),
             _ => "some other pattern?".to_string()
@@ -70,13 +77,13 @@ impl ExplainParse for Pat_ {
 }
 
 impl ExplainParse for Ty_ {
-    fn explain(&self) -> String {
+    fn _explain(&self) -> String {
         format!("{:?}", self)
     }
 }
 
 impl ExplainParse for Expr_ {
-    fn explain(&self) -> String {
+    fn _explain(&self) -> String {
         format!("{:?}", self)
     }
 }
