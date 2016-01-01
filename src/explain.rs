@@ -1,4 +1,4 @@
-use syntax::ast::{Stmt_, Decl_, Pat_, Ty_, Expr_, Block};
+use syntax::ast::{Stmt_, Decl_, Pat_, Ty_, Expr_, Block, Mod, Item, Item_};
 use syntax::codemap::Spanned;
 
 use tree::ParseNode;
@@ -13,11 +13,24 @@ impl SpannedExplainParse for Block {
     }
 }
 
+impl SpannedExplainParse for Mod {
+    fn spanned_explain(&self) -> Spanned<ParseNode<String>> {
+        Spanned { node: self.explain(), span: self.inner }
+    }
+}
+
+impl SpannedExplainParse for Item {
+    fn spanned_explain(&self) -> Spanned<ParseNode<String>> {
+        Spanned { node: self.node.explain(), span: self.span }
+    }
+}
+
 impl <T> SpannedExplainParse for Spanned<T> where T: ExplainParse {
     fn spanned_explain(&self) -> Spanned<ParseNode<String>> {
         Spanned { node: self.node.explain(), span: self.span }
     }
 }
+
 
 pub trait ExplainParse {
     fn _explain(&self) -> String;
@@ -68,6 +81,18 @@ impl ExplainParse for Block {
     }
 }
 
+impl ExplainParse for Mod {
+    fn explain(&self) -> ParseNode<String> {
+        ParseNode { 
+            value: self._explain(),
+            children: vec!(self.items[0].spanned_explain())
+        }
+    }
+    fn _explain(&self) -> String {
+        "A module declaration".to_string()
+    }
+}
+
 impl ExplainParse for Ty_ {
     fn _explain(&self) -> String {
         format!("{:?}", self)
@@ -77,5 +102,27 @@ impl ExplainParse for Ty_ {
 impl ExplainParse for Expr_ {
     fn _explain(&self) -> String {
         format!("{:?}", self)
+    }
+}
+
+impl ExplainParse for Item_ {
+    fn explain(&self) -> ParseNode<String> {
+        let children = match self {
+            &Item_::ItemFn(ref _decl, _, _, _, ref _generics, ref block) =>
+                // FIXME: add in declaration, generics, etc.
+                vec!(block.spanned_explain()),
+            _ => vec!()
+        };
+        ParseNode { 
+            value: self._explain(),
+            children: children
+        }
+    }
+    fn _explain(&self) -> String {
+        match self {
+            &Item_::ItemFn(ref _decl, _, _, _, ref _generics, ref block) =>
+                format!("{}", "A function declaration"),
+            _ => unreachable!()
+        }
     }
 }
