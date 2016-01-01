@@ -10,6 +10,7 @@ Named after the appendages crustaceans use to move food into their mouths:
 Current example
 ---------------
 
+```
 fn main() { let greeting = greet("Dave"); print!(greeing); }
 fn greet(name: &str) -> &str { "Hello, " + name }
 A module declaration containing:
@@ -47,3 +48,4 @@ A module declaration containing:
 
             "Hello, " + name
             ExprBinary(Spanned { node: BiAdd, span: Span { lo: BytePos(102), hi: BytePos(103), expn_id: ExpnId(4294967295) } }, expr(4294967295: "Hello, "), expr(4294967295: name))
+```
