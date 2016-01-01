@@ -11,12 +11,13 @@ pub struct ParseNode<T> {
 pub fn annotate(spanned_node: Spanned<ParseNode<String>>, code: &str, indent: usize) -> String {
   let node = spanned_node.node;
   let span = spanned_node.span;
-  let indentation = iter::repeat(" ").take(indent*4).collect::<String>() + "  ";
-  format!("{}{}\n{}{} containing:\n\n{}",
+  let indentation = iter::repeat(" ").take(indent*4).collect::<String>();
+  format!("{}{}\n{}{}{}\n\n{}",
     indentation,
     string_byte_range(code, span.lo.to_usize(), span.hi.to_usize()),
     indentation,
     node.value,
+    if node.children.is_empty() { " " } else { " containing: " },
     node.children.into_iter().map(|node| annotate(node, code, indent+1)).collect::<Vec<String>>().join("\n")
   )
 }

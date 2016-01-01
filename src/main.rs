@@ -18,7 +18,7 @@ mod tree;
 
 
 fn main() {
-    let code = "fn main() { let a : &'static str = \"Hello\" + \", world!\"; println!(a); }";
+    let code = "fn main() { let greeting = greet(\"Dave\"); print!(greeing); }\nfn greet(name: &str) -> &str { \"Hello, \" + name }";
     let krate = parse_code(code);
     let explanation = krate.module.spanned_explain();
     println!("{}", tree::annotate(explanation, code, 0));

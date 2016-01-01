@@ -1,5 +1,6 @@
-use syntax::ast::{Stmt_, Decl_, Pat_, Ty_, Expr_, Block, Mod, Item, Item_};
-use syntax::codemap::Spanned;
+use std::cmp;
+use syntax::ast::{Stmt_, Decl_, Pat_, Ty_, Expr_, Block, Mod, Item, Item_, Unsafety, Constness, Visibility, FnDecl, Arg, Ty, Pat, Expr};
+use syntax::codemap::{Span, Spanned, NO_EXPANSION, BytePos, Pos};
 
 use tree::ParseNode;
 
@@ -21,7 +22,7 @@ impl SpannedExplainParse for Mod {
 
 impl SpannedExplainParse for Item {
     fn spanned_explain(&self) -> Spanned<ParseNode<String>> {
-        Spanned { node: self.node.explain(), span: self.span }
+        Spanned { node: self.explain(), span: self.span }
     }
 }
 
@@ -31,11 +32,37 @@ impl <T> SpannedExplainParse for Spanned<T> where T: ExplainParse {
     }
 }
 
+impl SpannedExplainParse for Arg {
+    fn spanned_explain(&self) -> Spanned<ParseNode<String>> {
+        Spanned { node: self.explain(), span: combine_spans(self.ty.span, self.pat.span) }
+    }
+}
+
+impl SpannedExplainParse for Ty {
+    fn spanned_explain(&self) -> Spanned<ParseNode<String>> {
+        Spanned { node: self.node.explain(), span: self.span }
+    }
+}
+
+impl SpannedExplainParse for Pat {
+    fn spanned_explain(&self) -> Spanned<ParseNode<String>> {
+        Spanned { node: self.node.explain(), span: self.span }
+    }
+}
+
+impl SpannedExplainParse for Expr {
+    fn spanned_explain(&self) -> Spanned<ParseNode<String>> {
+        Spanned { node: self.node.explain(), span: self.span }
+    }
+}
 
 pub trait ExplainParse {
     fn _explain(&self) -> String;
     fn explain(&self) -> ParseNode<String> {
-        ParseNode { value: self._explain(), children: vec!() }
+        ParseNode { value: self._explain(), children: self.children() }
+    }
+    fn children(&self) -> Vec<Spanned<ParseNode<String>>> {
+        vec!()
     }
 }
 
@@ -70,11 +97,10 @@ impl ExplainParse for Pat_ {
 }
 
 impl ExplainParse for Block {
-    fn explain(&self) -> ParseNode<String> {
-        ParseNode { 
-            value: self._explain(),
-            children: vec!(self.stmts[0].spanned_explain())
-        }
+    fn children(&self) -> Vec<Spanned<ParseNode<String>>> {
+        let stmts = self.stmts.iter().map(|x| x.spanned_explain());
+        let expr = self.expr.iter().map(|x| x.spanned_explain());
+        stmts.chain(expr).collect::<Vec<_>>()
     }
     fn _explain(&self) -> String {
         format!("A block")
@@ -82,11 +108,8 @@ impl ExplainParse for Block {
 }
 
 impl ExplainParse for Mod {
-    fn explain(&self) -> ParseNode<String> {
-        ParseNode { 
-            value: self._explain(),
-            children: vec!(self.items[0].spanned_explain())
-        }
+    fn children(&self) -> Vec<Spanned<ParseNode<String>>> {
+        self.items.iter().map(|x| x.spanned_explain()).collect::<Vec<_>>()
     }
     fn _explain(&self) -> String {
         "A module declaration".to_string()
@@ -105,24 +128,46 @@ impl ExplainParse for Expr_ {
     }
 }
 
-impl ExplainParse for Item_ {
-    fn explain(&self) -> ParseNode<String> {
-        let children = match self {
-            &Item_::ItemFn(ref _decl, _, _, _, ref _generics, ref block) =>
-                // FIXME: add in declaration, generics, etc.
-                vec!(block.spanned_explain()),
-            _ => vec!()
-        };
-        ParseNode { 
-            value: self._explain(),
-            children: children
-        }
-    }
-    fn _explain(&self) -> String {
-        match self {
-            &Item_::ItemFn(ref _decl, _, _, _, ref _generics, ref block) =>
-                format!("{}", "A function declaration"),
+// An `Item` has the span, name, and visibility of the item,
+// but `Item_` has its type and contents but no span. 
+// So we need to look at both to get a useful Spanned ParseNode.
+impl ExplainParse for Item {
+    fn children(&self) -> Vec<Spanned<ParseNode<String>>> {
+        match self.node {
+            Item_::ItemFn(ref decl, _, _, _, ref _generics, ref block) => {
+                // FIXME: add in generics, etc.
+                let mut children = decl.inputs.iter().map(|arg| arg.spanned_explain()).collect::<Vec<_>>();
+                children.push(block.spanned_explain());
+                children
+            },
             _ => unreachable!()
         }
     }
+    fn _explain(&self) -> String {
+        match self.node {
+            Item_::ItemFn(ref _decl, unsafety, constness, _, ref _generics, ref block) =>
+                format!("A{}{}{}declaration of a function named {}",
+                    if unsafety == Unsafety::Unsafe { "n unsafe " } else { " safe " },
+                    if constness == Constness::Const { "const "} else { "" },
+                    if self.vis == Visibility::Public { "public "} else { "inherited-visibility "},
+                    self.ident.name.as_str()),
+            _ => unreachable!()
+        }
+    }
+}
+
+impl ExplainParse for Arg {
+    fn children(&self) -> Vec<Spanned<ParseNode<String>>> {
+        vec!(self.ty.spanned_explain(), self.pat.spanned_explain())
+    }
+    fn _explain(&self) -> String {
+        "An argument".to_string()
+    }
+}
+
+
+fn combine_spans(s1: Span, s2: Span) -> Span {
+    let lo = cmp::min(s1.lo.to_usize(), s2.lo.to_usize());
+    let hi = cmp::max(s1.hi.to_usize(), s2.hi.to_usize());
+    Span { lo: BytePos::from_usize(lo), hi: BytePos::from_usize(hi), expn_id: NO_EXPANSION}
 }
