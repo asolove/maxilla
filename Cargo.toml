@@ -2,3 +2,9 @@
 name = "maxilla"
 version = "0.1.0"
 authors = ["asolove <asolove@gmail.com>"]
+
+[dependencies]
+iron = "*"
+
+[dependencies.bodyparser]
+git = "https://github.com/iron/body-parser.git"
